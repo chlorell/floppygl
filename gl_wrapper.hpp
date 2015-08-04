@@ -17,12 +17,15 @@ namespace gl {
     typedef GLuint idtype;
     enum shader_enum{vertex=GL_VERTEX_SHADER, fragment=GL_FRAGMENT_SHADER} ;
     
+ 
     class frame_buffer;
     class render_target;
+ 
     class texture;
-    class attrib_buffer;
+    class attribbuffer;
     
     class program;
+ 
     
     
     
@@ -177,7 +180,7 @@ namespace gl {
     
     
 
-    
+     
     template<const shader_enum type>
     class shader
     {
