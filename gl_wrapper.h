@@ -17,11 +17,166 @@ namespace gl {
     typedef GLuint idtype;
     enum shader_enum{vertex=GL_VERTEX_SHADER, fragment=GL_FRAGMENT_SHADER} ;
     
+    class frame_buffer;
     class render_target;
     class texture;
     class attrib_buffer;
     
     class program;
+    
+    
+    
+    
+    
+    class texture
+    {
+        idtype tex_id;
+    public:
+        enum tex_type {rgba8=0, rgb8, rgb32f};
+        
+        
+        
+        texture()
+        {
+            glGenTextures(1, &tex_id);
+        }
+        
+        void bind()
+        {
+            glBindTexture(GL_TEXTURE_2D, tex_id);
+        }
+        
+        void make_storage(unsigned w, unsigned h, tex_type t, int level = 0, const char * data = 0);
+        
+        ~texture()
+        {
+            if(tex_id)
+                glDeleteTextures(1, &tex_id);
+        }
+        friend class frame_buffer;
+    };
+    
+    
+    struct dynamic_tex_type_traits
+    {
+        int internal_format;
+        int format;
+        int type;
+    };
+    
+    template<const texture::tex_type t>
+    struct tex_type_traits
+    {
+        enum i_f { internal_format = GL_RGBA4 };
+        enum fmt { format = GL_RGBA };
+        enum f_t { type = GL_BYTE };
+        
+        constexpr static  dynamic_tex_type_traits dynamic{internal_format, format, type};
+    };
+    template <>
+    struct tex_type_traits <texture::rgba8>
+    {
+        enum i_f { internal_format = GL_RGBA8_OES };
+        enum fmt { format = GL_RGBA };
+        enum f_t { type = GL_BYTE };
+        constexpr static  dynamic_tex_type_traits dynamic{internal_format, format, type};
+    };
+    template<>
+    struct tex_type_traits<texture::rgb8>
+    {
+        enum i_f { internal_format = GL_RGBA8_OES };
+        enum fmt { format = GL_RGBA };
+        enum f_t { type = GL_BYTE };
+        constexpr static  dynamic_tex_type_traits dynamic{internal_format, format, type};
+    };
+    template<>
+    struct tex_type_traits<texture::rgb32f>
+    {
+        enum i_f { internal_format = GL_RGB32F_EXT };
+        enum fmt { format = GL_RGBA };
+        enum f_t { type = GL_FLOAT };
+        constexpr static  dynamic_tex_type_traits dynamic{internal_format, format, type};
+    };
+    
+     inline void texture::make_storage(unsigned w, unsigned h, tex_type t, int level, const char * data)
+     {
+         static dynamic_tex_type_traits dynamics[]={
+             tex_type_traits<rgba8>::dynamic,
+             tex_type_traits<rgb8>::dynamic,
+             tex_type_traits<rgb32f>::dynamic
+         };
+         
+         
+         glTexImage2D(GL_TEXTURE_2D, level, dynamics[t].internal_format, w, h, 0, dynamics[t].format, dynamics[t].type, data);
+     }
+    
+    class render_target
+    {
+        idtype rt_id;
+    public:
+        render_target()
+        {
+            glGenRenderbuffers(1, &rt_id);
+            
+        }
+        
+        void make_storage(unsigned w, unsigned h, idtype kind)
+        {
+            glRenderbufferStorage(GL_RENDERBUFFER, kind, w, h);
+        }
+        
+        
+        ~render_target()
+        {
+            if(rt_id)
+                glDeleteRenderbuffers(1, &rt_id);
+        }
+        friend class frame_buffer;
+    };
+    
+    class frame_buffer
+    {
+        idtype fb_id;
+    public:
+        enum attachment_place{color=GL_COLOR_ATTACHMENT0, depth=GL_DEPTH_ATTACHMENT, stencil=GL_STENCIL_ATTACHMENT};
+        frame_buffer()
+        {
+            glGenFramebuffers(1, &fb_id);
+        }
+        ~frame_buffer()
+        {
+            if(fb_id)
+                glDeleteFramebuffers(1, &fb_id);
+        }
+        
+        void bind()
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
+        }
+       
+        void attach(const render_target& rt,attachment_place pl)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, pl, GL_RENDERBUFFER, rt.rt_id);
+        }
+        
+       
+        void attach(const texture& t,attachment_place pl, unsigned level=0)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, pl, GL_TEXTURE_2D, t.tex_id, level);
+        }
+        
+        bool status()
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, fb_id);
+            GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER) ;
+            return status == GL_FRAMEBUFFER_COMPLETE;
+        }
+    };
+    
+    
+
     
     template<const shader_enum type>
     class shader
